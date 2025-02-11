@@ -1,6 +1,5 @@
 let socket;
 let username = "";
-let activeRooms = []; // Список активних кімнат
 
 // Функція для встановлення імені користувача
 function setUsername() {
@@ -13,9 +12,6 @@ function setUsername() {
     // Сховуємо форму для введення імені і показуємо чат-інтерфейс
     document.getElementById("username-section").style.display = "none";
     document.getElementById("chat-section").style.display = "block";
-
-    // Завантажуємо список доступних кімнат
-    fetchAvailableRooms();
 }
 
 // Створення кімнати
@@ -62,6 +58,49 @@ function joinRoom() {
     };
 }
 
+// Функція для відправлення повідомлення
+function sendMessage() {
+    const message = document.getElementById("message").value;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        const messageObj = { sender: username, text: message };
+        socket.send(JSON.stringify(messageObj)); // Відправляємо JSON
+        document.getElementById("message").value = "";
+    } else {
+        alert("❌ WebSocket ще не підключений!");
+    }
+}
+
+// Автоперепідключення у разі втрати зв'язку
+function reconnect() {
+    setTimeout(() => {
+        console.log("🔄 Перепідключення...");
+        joinRoom();
+    }, 3000);
+}
+
+// Обробка отриманих даних (список кімнат)
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "update-rooms") {
+        updateRoomList(data.rooms);
+    }
+};
+
+// Оновлення списку кімнат на клієнті
+function updateRoomList(rooms) {
+    const roomList = document.getElementById("room-list");
+    roomList.innerHTML = "";
+    rooms.forEach(room => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${room.name} (${room.participants} учасників)`;
+        listItem.onclick = () => {
+            document.getElementById("roomUrl").value = `wss://${location.host}/ws?room=${room.name}`;
+            joinRoom();
+        };
+        roomList.appendChild(listItem);
+    })
+}
+
 // Оновлення списку доступних кімнат
 function fetchAvailableRooms() {
     fetch("/active-rooms")
@@ -82,10 +121,3 @@ function fetchAvailableRooms() {
         });
 }
 
-// Функція для автоматичного перепідключення у разі втрати зв'язку
-function reconnect() {
-    setTimeout(() => {
-        console.log("🔄 Перепідключення...");
-        joinRoom();
-    }, 3000);
-}
