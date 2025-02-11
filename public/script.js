@@ -83,11 +83,6 @@ function reconnect() {
     }, 3000);
 }
 
-// Обробка отриманих даних (список кімнат)
-socket.onmessage = (event) => {
-
-};
-
 // Оновлення списку кімнат на клієнті
 function updateRoomList(rooms) {
     const roomList = document.getElementById("room-list");
