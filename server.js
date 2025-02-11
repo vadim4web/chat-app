@@ -9,7 +9,8 @@ const wss = new WebSocketServer({ server });
 
 app.use(express.static(path.join(__dirname, "public")));
 
-const rooms = {}; // Об'єкт для збереження кімнат
+const rooms = {}; // Об'єкт для збереження кімнат та їх підключень
+const activeRooms = {}; // Кеш для доступних кімнат
 
 wss.on("connection", (ws, req) => {
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
@@ -22,10 +23,15 @@ wss.on("connection", (ws, req) => {
 
     if (!rooms[roomId]) {
         rooms[roomId] = new Set();
+        activeRooms[roomId] = { name: `Кімната ${roomId}`, participants: 0 }; // Додаємо нову кімнату
     }
 
     rooms[roomId].add(ws);
+    activeRooms[roomId].participants += 1; // Збільшуємо кількість учасників
     console.log(`Користувач приєднався до кімнати: ${roomId}`);
+
+    // Розсилаємо всім користувачам оновлений список активних кімнат
+    updateActiveRooms();
 
     ws.on("message", (message) => {
         console.log(`Отримано повідомлення у кімнаті ${roomId}:`, message);
@@ -40,16 +46,41 @@ wss.on("connection", (ws, req) => {
 
     ws.on("close", () => {
         rooms[roomId].delete(ws);
+        activeRooms[roomId].participants -= 1; // Зменшуємо кількість учасників
         if (rooms[roomId].size === 0) {
             delete rooms[roomId];
+            delete activeRooms[roomId];
             console.log(`Кімната ${roomId} закрита`);
         }
+
+        // Розсилаємо всім користувачам оновлений список активних кімнат
+        updateActiveRooms();
     });
 });
 
+// Функція для оновлення списку активних кімнат
+function updateActiveRooms() {
+    const activeRoomList = Object.values(activeRooms).map(room => ({
+        name: room.name,
+        participants: room.participants
+    }));
+
+    // Відправляємо оновлений список всім підключеним клієнтам
+    wss.clients.forEach(client => {
+        if (client.readyState === 1) {
+            client.send(JSON.stringify({ type: "update-rooms", rooms: activeRoomList }));
+        }
+    });
+}
+
 app.get("/create-room", (req, res) => {
     const roomId = Math.random().toString(36).substr(2, 8);
-    res.json({ roomUrl: `wss://${req.headers.host}/ws?room=${roomId}` });
+    const roomName = `Кімната ${roomId}`;
+    res.json({ roomUrl: `wss://${req.headers.host}/ws?room=${roomId}`, roomName: roomName });
+
+    // Додаємо кімнату в кеш
+    activeRooms[roomId] = { name: roomName, participants: 0 };
+    updateActiveRooms(); // Оновлюємо список доступних кімнат
 });
 
 const PORT = process.env.PORT || 10000;

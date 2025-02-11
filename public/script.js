@@ -14,6 +14,7 @@ function setUsername() {
     document.getElementById("chat-section").style.display = "block";
 }
 
+// Створення кімнати
 async function createRoom() {
     const response = await fetch("/create-room");
     const data = await response.json();
@@ -21,6 +22,7 @@ async function createRoom() {
     joinRoom();
 }
 
+// Приєднання до кімнати
 function joinRoom() {
     const url = document.getElementById("roomUrl").value;
     if (!url) return alert("Введіть посилання на кімнату!");
@@ -56,6 +58,7 @@ function joinRoom() {
     };
 }
 
+// Функція для відправлення повідомлення
 function sendMessage() {
     const message = document.getElementById("message").value;
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -67,10 +70,33 @@ function sendMessage() {
     }
 }
 
-// Функція для автоматичного перепідключення у разі втрати зв'язку
+// Автоперепідключення у разі втрати зв'язку
 function reconnect() {
     setTimeout(() => {
         console.log("🔄 Перепідключення...");
         joinRoom();
     }, 3000);
+}
+
+// Обробка отриманих даних (список кімнат)
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "update-rooms") {
+        updateRoomList(data.rooms);
+    }
+};
+
+// Оновлення списку кімнат на клієнті
+function updateRoomList(rooms) {
+    const roomList = document.getElementById("room-list");
+    roomList.innerHTML = "";
+    rooms.forEach(room => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${room.name} (${room.participants} учасників)`;
+        listItem.onclick = () => {
+            document.getElementById("roomUrl").value = `wss://${location.host}/ws?room=${room.name}`;
+            joinRoom();
+        };
+        roomList.appendChild(listItem);
+    }
 }
