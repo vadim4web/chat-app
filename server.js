@@ -12,6 +12,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const rooms = {}; // Об'єкт для збереження кімнат та їх підключень
 const activeRooms = {}; // Кеш для доступних кімнат
 
+// Обробник WebSocket з'єднання
 wss.on("connection", (ws, req) => {
     const urlParams = new URL(req.url, `http://${req.headers.host}`);
     const roomId = urlParams.searchParams.get("room");
@@ -62,7 +63,8 @@ wss.on("connection", (ws, req) => {
 function updateActiveRooms() {
     const activeRoomList = Object.values(activeRooms).map(room => ({
         name: room.name,
-        participants: room.participants
+        participants: room.participants,
+        roomId: room.name.split(" ")[1] // Отримуємо ID кімнати (наприклад, "Кімната 9kdw5alo" → "9kdw5alo")
     }));
 
     // Відправляємо оновлений список всім підключеним клієнтам
@@ -73,6 +75,7 @@ function updateActiveRooms() {
     });
 }
 
+// Обробка створення нової кімнати
 app.get("/create-room", (req, res) => {
     const roomId = Math.random().toString(36).substr(2, 8);
     const roomName = `Кімната ${roomId}`;
@@ -81,6 +84,11 @@ app.get("/create-room", (req, res) => {
     // Додаємо кімнату в кеш
     activeRooms[roomId] = { name: roomName, participants: 0 };
     updateActiveRooms(); // Оновлюємо список доступних кімнат
+});
+
+// Головна сторінка
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 const PORT = process.env.PORT || 10000;
