@@ -1,91 +1,106 @@
-let socket;
-let username = "";
-let activeRooms = []; // Список активних кімнат
+const express = require("express");
+const { WebSocketServer } = require("ws");
+const http = require("http");
+const path = require("path");
 
-// Функція для встановлення імені користувача
-function setUsername() {
-    username = document.getElementById("username").value.trim();
-    if (!username) {
-        alert("Будь ласка, введіть ім'я!");
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+app.use(express.static(path.join(__dirname, "public")));
+
+const rooms = {}; // Об'єкт для збереження кімнат та їх підключень
+const activeRooms = {}; // Кеш для доступних кімнат
+
+// Обробник WebSocket з'єднання
+wss.on("connection", (ws, req) => {
+    const urlParams = new URL(req.url, `http://${req.headers.host}`);
+    const roomId = urlParams.searchParams.get("room");
+
+    if (!roomId) {
+        ws.close();
         return;
     }
 
-    // Сховуємо форму для введення імені і показуємо чат-інтерфейс
-    document.getElementById("username-section").style.display = "none";
-    document.getElementById("chat-section").style.display = "block";
+    if (!rooms[roomId]) {
+        rooms[roomId] = new Set();
+        activeRooms[roomId] = { name: `Кімната ${roomId}`, participants: 0 }; // Додаємо нову кімнату
+    }
 
-    // Завантажуємо список доступних кімнат
-    fetchAvailableRooms();
-}
+    rooms[roomId].add(ws);
+    activeRooms[roomId].participants += 1; // Збільшуємо кількість учасників
+    console.log(`Користувач приєднався до кімнати: ${roomId}`);
 
-// Створення кімнати
-async function createRoom() {
-    const response = await fetch("/create-room");
-    const data = await response.json();
-    document.getElementById("roomUrl").value = data.roomUrl;
-    joinRoom();
-}
+    // Розсилаємо всім користувачам оновлений список активних кімнат
+    updateActiveRooms();
 
-// Приєднання до кімнати
-function joinRoom() {
-    const url = document.getElementById("roomUrl").value;
-    if (!url) return alert("Введіть посилання на кімнату!");
+    ws.on("message", (message) => {
+        console.log(`Отримано повідомлення у кімнаті ${roomId}:`, message);
 
-    socket = new WebSocket(url);
+        // Розсилаємо ВСІМ користувачам у кімнаті (включаючи відправника)
+        rooms[roomId].forEach(client => {
+            if (client.readyState === 1) {
+                client.send(message);
+            }
+        });
+    });
 
-    socket.onopen = () => {
-        document.getElementById("room-info").innerText = "🔵 Підключено до " + url;
-    };
-
-    socket.onmessage = async (event) => {
-        const chatBox = document.getElementById("chat-box");
-        const data = await event.data.text(); // Читаємо повідомлення як текст
-
-        try {
-            const messageObj = JSON.parse(data);
-            chatBox.innerHTML += `<p><strong>${messageObj.sender}:</strong> ${messageObj.text}</p>`;
-        } catch (e) {
-            console.error("Помилка обробки повідомлення:", e);
+    ws.on("close", () => {
+        rooms[roomId].delete(ws);
+        activeRooms[roomId].participants -= 1; // Зменшуємо кількість учасників
+        if (rooms[roomId].size === 0) {
+            delete rooms[roomId];
+            delete activeRooms[roomId];
+            console.log(`Кімната ${roomId} закрита`);
         }
 
-        chatBox.scrollTop = chatBox.scrollHeight;
-    };
+        // Розсилаємо всім користувачам оновлений список активних кімнат
+        updateActiveRooms();
+    });
+});
 
-    socket.onclose = () => {
-        document.getElementById("room-info").innerText = "🔴 З'єднання закрите";
-        reconnect(); // Автоперепідключення
-    };
+// Функція для оновлення списку активних кімнат
+function updateActiveRooms() {
+    const activeRoomList = Object.values(activeRooms).map(room => ({
+        name: room.name,
+        participants: room.participants,
+        roomId: room.name.split(" ")[1] // Отримуємо ID кімнати (наприклад, "Кімната 9kdw5alo" → "9kdw5alo")
+    }));
 
-    socket.onerror = (error) => {
-        console.error("WebSocket Error:", error);
-        alert("❌ Помилка підключення до чату");
-    };
+    // Відправляємо оновлений список всім підключеним клієнтам
+    wss.clients.forEach(client => {
+        if (client.readyState === 1) {
+            client.send(JSON.stringify({ type: "update-rooms", rooms: activeRoomList }));
+        }
+    });
 }
 
-// Оновлення списку доступних кімнат
-function fetchAvailableRooms() {
-    fetch("/active-rooms")
-        .then(response => response.json())
-        .then(data => {
-            activeRooms = data.rooms;
-            const roomList = document.getElementById("room-list");
-            roomList.innerHTML = "";
-            activeRooms.forEach(room => {
-                const listItem = document.createElement("li");
-                listItem.textContent = `${room.name} (${room.participants} учасників)`;
-                listItem.onclick = () => {
-                    document.getElementById("roomUrl").value = `wss://${location.host}/ws?room=${room.roomId}`;
-                    joinRoom();
-                };
-                roomList.appendChild(listItem);
-            });
-        });
-}
+// Обробка створення нової кімнати
+app.get("/create-room", (req, res) => {
+    const roomId = Math.random().toString(36).substr(2, 8);
+    const roomName = `Кімната ${roomId}`;
+    res.json({ roomUrl: `wss://${req.headers.host}/ws?room=${roomId}`, roomName: roomName });
 
-// Функція для автоматичного перепідключення у разі втрати зв'язку
-function reconnect() {
-    setTimeout(() => {
-        console.log("🔄 Перепідключення...");
-        joinRoom();
-    }, 3000);
-}
+    // Додаємо кімнату в кеш
+    activeRooms[roomId] = { name: roomName, participants: 0 };
+    updateActiveRooms(); // Оновлюємо список доступних кімнат
+});
+
+// Додати обробник маршруту для /active-rooms
+app.get("/active-rooms", (req, res) => {
+    const activeRoomList = Object.values(activeRooms).map(room => ({
+        name: room.name,
+        participants: room.participants,
+        roomId: room.name.split(" ")[1] // Отримуємо ID кімнати
+    }));
+
+    res.json({ rooms: activeRoomList });
+});
+
+// Головна сторінка
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => console.log(`Сервер запущено на порту ${PORT}`));
