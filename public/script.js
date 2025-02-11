@@ -98,5 +98,5 @@ function updateRoomList(rooms) {
             joinRoom();
         };
         roomList.appendChild(listItem);
-    }
+    })
 }
