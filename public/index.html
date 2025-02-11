@@ -1,33 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat App</title>
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <title>WebSocket Чат</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="user-info">
-        <h3 id="user-name">Ваше ім'я: </h3>
+
+    <h1>WebSocket Чат</h1>
+    
+    <!-- Форма для вводу імені -->
+    <div id="username-section">
+        <input type="text" id="username" placeholder="Введіть ваше ім'я" />
+        <button onclick="setUsername()">Прийняти ім'я</button>
     </div>
 
-    <div>
-        <h2>Створити кімнату</h2>
-        <input type="text" id="room-name" placeholder="Введіть назву кімнати">
-        <button onclick="createRoom()">Створити кімнату</button>
-        <p id="room-url"></p>
+    <div id="chat-section" style="display:none;">
+        <button onclick="createRoom()">🛠 Створити кімнату</button>
+        <br>
+        <input type="text" id="roomUrl" placeholder="Вставте посилання на кімнату">
+        <button onclick="joinRoom()">🔗 Приєднатися</button>
+        
+        <h2 id="room-info"></h2>
+        <div id="chat-box"></div>
+        
+        <input type="text" id="message" placeholder="Введіть повідомлення">
+        <button onclick="sendMessage()">📩 Відправити</button>
     </div>
-
-    <h2>Публічні кімнати</h2>
-    <ul id="public-rooms">
-        <!-- Список кімнат буде завантажений сюди -->
-    </ul>
-
-    <div id="chat-box"></div>
-    <input type="text" id="message" placeholder="Напишіть повідомлення">
-    <button onclick="sendMessage()">Відправити</button>
-
-    <div id="room-info"></div>
 
     <script src="script.js"></script>
+
 </body>
 </html>
