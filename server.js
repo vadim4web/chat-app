@@ -86,6 +86,17 @@ app.get("/create-room", (req, res) => {
     updateActiveRooms(); // Оновлюємо список доступних кімнат
 });
 
+// Додати обробник маршруту для /active-rooms
+app.get("/active-rooms", (req, res) => {
+    const activeRoomList = Object.values(activeRooms).map(room => ({
+        name: room.name,
+        participants: room.participants,
+        roomId: room.name.split(" ")[1] // Отримуємо ID кімнати
+    }));
+
+    res.json({ rooms: activeRoomList });
+});
+
 // Головна сторінка
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
