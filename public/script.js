@@ -12,7 +12,10 @@ function joinRoom() {
     if (!url) return alert("Введіть посилання на кімнату!");
 
     socket = new WebSocket(url);
-    document.getElementById("room-info").innerText = "🔵 Підключено до " + url;
+
+    socket.onopen = () => {
+        document.getElementById("room-info").innerText = "🔵 Підключено до " + url;
+    };
 
     socket.onmessage = (event) => {
         const chatBox = document.getElementById("chat-box");
@@ -23,12 +26,19 @@ function joinRoom() {
     socket.onclose = () => {
         document.getElementById("room-info").innerText = "🔴 З'єднання закрите";
     };
+
+    socket.onerror = (error) => {
+        console.error("WebSocket Error:", error);
+        alert("❌ Помилка підключення до чату");
+    };
 }
 
 function sendMessage() {
     const message = document.getElementById("message").value;
-    if (socket && message) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(message);
         document.getElementById("message").value = "";
+    } else {
+        alert("❌ WebSocket ще не підключений!");
     }
 }

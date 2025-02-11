@@ -1,51 +1,53 @@
 const express = require("express");
 const { WebSocketServer } = require("ws");
-const cors = require("cors");
 const http = require("http");
 const path = require("path");
 
 const app = express();
-app.use(cors());
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
 app.use(express.static(path.join(__dirname, "public")));
 
-const rooms = {}; // Збереження кімнат
+const rooms = {}; // Об'єкт для збереження кімнат
 
-// Створення нової кімнати
-app.get("/create-room", (req, res) => {
-    const port = Math.floor(3000 + Math.random() * 5000); // Випадковий порт
-    const server = http.createServer();
-    const wss = new WebSocketServer({ server });
+wss.on("connection", (ws, req) => {
+    const urlParams = new URL(req.url, `http://${req.headers.host}`);
+    const roomId = urlParams.searchParams.get("room");
 
-    rooms[port] = { server, wss, clients: new Set() };
+    if (!roomId) {
+        ws.close();
+        return;
+    }
 
-    wss.on("connection", (ws) => {
-        rooms[port].clients.add(ws);
-        console.log(`Новий клієнт приєднався до кімнати ${port}`);
+    if (!rooms[roomId]) {
+        rooms[roomId] = new Set();
+    }
 
-        ws.on("message", (message) => {
-            rooms[port].clients.forEach((client) => {
-                if (client !== ws && client.readyState === 1) {
-                    client.send(message);
-                }
-            });
-        });
+    rooms[roomId].add(ws);
+    console.log(`Користувач приєднався до кімнати: ${roomId}`);
 
-        ws.on("close", () => {
-            rooms[port].clients.delete(ws);
-            if (rooms[port].clients.size === 0) {
-                rooms[port].server.close();
-                delete rooms[port];
-                console.log(`Кімната ${port} закрита`);
+    ws.on("message", (message) => {
+        rooms[roomId].forEach(client => {
+            if (client !== ws && client.readyState === 1) {
+                client.send(message);
             }
         });
     });
 
-    server.listen(port, () => {
-        console.log(`Кімната створена на порті ${port}`);
-        res.json({ roomUrl: `wss://${req.headers.host.replace(/\:\d+$/, '')}:${port}` });
+    ws.on("close", () => {
+        rooms[roomId].delete(ws);
+        if (rooms[roomId].size === 0) {
+            delete rooms[roomId];
+            console.log(`Кімната ${roomId} закрита`);
+        }
     });
 });
 
-// Запуск сервера
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Сервер запущено на http://localhost:${PORT}`));
+app.get("/create-room", (req, res) => {
+    const roomId = Math.random().toString(36).substr(2, 8);
+    res.json({ roomUrl: `wss://${req.headers.host}/ws?room=${roomId}` });
+});
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => console.log(`Сервер запущено на порту ${PORT}`));
