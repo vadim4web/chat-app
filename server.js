@@ -28,9 +28,12 @@ wss.on("connection", (ws, req) => {
     console.log(`Користувач приєднався до кімнати: ${roomId}`);
 
     ws.on("message", (message) => {
+        console.log(`Отримано повідомлення у кімнаті ${roomId}:`, message);
+
+        // Розсилаємо ВСІМ користувачам у кімнаті (включаючи відправника)
         rooms[roomId].forEach(client => {
             if (client.readyState === 1) {
-                client.send(message); // Відправляємо всім у кімнаті
+                client.send(message);
             }
         });
     });

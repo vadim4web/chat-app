@@ -1,5 +1,5 @@
 let socket;
-let username = "User" + Math.floor(Math.random() * 1000); // Генеруємо випадкове ім'я
+let username = "User" + Math.floor(Math.random() * 1000); // Випадкове ім'я користувача
 
 async function createRoom() {
     const response = await fetch("/create-room");
@@ -21,17 +21,20 @@ function joinRoom() {
     socket.onmessage = async (event) => {
         const chatBox = document.getElementById("chat-box");
         const data = await event.data.text(); // Читаємо повідомлення як текст
+
         try {
             const messageObj = JSON.parse(data);
             chatBox.innerHTML += `<p><strong>${messageObj.sender}:</strong> ${messageObj.text}</p>`;
         } catch (e) {
             console.error("Помилка обробки повідомлення:", e);
         }
+
         chatBox.scrollTop = chatBox.scrollHeight;
     };
 
     socket.onclose = () => {
         document.getElementById("room-info").innerText = "🔴 З'єднання закрите";
+        reconnect(); // Автоперепідключення
     };
 
     socket.onerror = (error) => {
@@ -45,14 +48,16 @@ function sendMessage() {
     if (socket && socket.readyState === WebSocket.OPEN) {
         const messageObj = { sender: username, text: message };
         socket.send(JSON.stringify(messageObj)); // Відправляємо JSON
-
-        // Додаємо повідомлення відправника в його вікно
-        const chatBox = document.getElementById("chat-box");
-        chatBox.innerHTML += `<p><strong>Ви:</strong> ${message}</p>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-
         document.getElementById("message").value = "";
     } else {
         alert("❌ WebSocket ще не підключений!");
     }
+}
+
+// Функція для автоматичного перепідключення у разі втрати зв'язку
+function reconnect() {
+    setTimeout(() => {
+        console.log("🔄 Перепідключення...");
+        joinRoom();
+    }, 3000);
 }
