@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Чат</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <h1>WebSocket Чат</h1>
+    <button onclick="createRoom()">🛠 Створити кімнату</button>
+    <br>
+    <input type="text" id="roomUrl" placeholder="Вставте посилання на кімнату">
+    <button onclick="joinRoom()">🔗 Приєднатися</button>
+    
+    <h2 id="room-info"></h2>
+    <div id="chat-box"></div>
+    
+    <input type="text" id="message" placeholder="Введіть повідомлення">
+    <button onclick="sendMessage()">📩 Відправити</button>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
