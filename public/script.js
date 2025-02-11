@@ -45,6 +45,11 @@ function joinRoom() {
         }
 
         chatBox.scrollTop = chatBox.scrollHeight;
+
+        const d = JSON.parse(event.data);
+        if (d.type === "update-rooms") {
+            updateRoomList(d.rooms);
+        }
     };
 
     socket.onclose = () => {
@@ -80,10 +85,7 @@ function reconnect() {
 
 // Обробка отриманих даних (список кімнат)
 socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === "update-rooms") {
-        updateRoomList(data.rooms);
-    }
+
 };
 
 // Оновлення списку кімнат на клієнті
