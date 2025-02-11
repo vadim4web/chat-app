@@ -29,8 +29,8 @@ wss.on("connection", (ws, req) => {
 
     ws.on("message", (message) => {
         rooms[roomId].forEach(client => {
-            if (client !== ws && client.readyState === 1) {
-                client.send(message);
+            if (client.readyState === 1) {
+                client.send(message); // Відправляємо всім у кімнаті
             }
         });
     });

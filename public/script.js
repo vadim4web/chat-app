@@ -1,4 +1,5 @@
 let socket;
+let username = "User" + Math.floor(Math.random() * 1000); // Генеруємо випадкове ім'я
 
 async function createRoom() {
     const response = await fetch("/create-room");
@@ -19,8 +20,13 @@ function joinRoom() {
 
     socket.onmessage = async (event) => {
         const chatBox = document.getElementById("chat-box");
-        const message = await event.data.text(); // Читаємо Blob як текст
-        chatBox.innerHTML += `<p>${message}</p>`;
+        const data = await event.data.text(); // Читаємо повідомлення як текст
+        try {
+            const messageObj = JSON.parse(data);
+            chatBox.innerHTML += `<p><strong>${messageObj.sender}:</strong> ${messageObj.text}</p>`;
+        } catch (e) {
+            console.error("Помилка обробки повідомлення:", e);
+        }
         chatBox.scrollTop = chatBox.scrollHeight;
     };
 
@@ -37,8 +43,14 @@ function joinRoom() {
 function sendMessage() {
     const message = document.getElementById("message").value;
     if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(message);
-        document.getElementById("chat-box").innerHTML += `<p><strong>Ви:</strong> ${message}</p>`; // Оновлення чату у відправника
+        const messageObj = { sender: username, text: message };
+        socket.send(JSON.stringify(messageObj)); // Відправляємо JSON
+
+        // Додаємо повідомлення відправника в його вікно
+        const chatBox = document.getElementById("chat-box");
+        chatBox.innerHTML += `<p><strong>Ви:</strong> ${message}</p>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
         document.getElementById("message").value = "";
     } else {
         alert("❌ WebSocket ще не підключений!");
